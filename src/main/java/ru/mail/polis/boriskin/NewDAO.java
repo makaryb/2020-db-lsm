@@ -40,7 +40,7 @@ public class NewDAO implements DAO {
     }
 
     @Override
-    public void remove (@NotNull final ByteBuffer key) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         map.remove(key);
     }
 
