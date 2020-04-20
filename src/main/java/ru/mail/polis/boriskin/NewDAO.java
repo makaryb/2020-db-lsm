@@ -17,7 +17,6 @@ import java.util.TreeMap;
  *
  * @author Makary Boriskin
  */
-
 public class NewDAO implements DAO {
     private final SortedMap<ByteBuffer, ByteBuffer> map = new TreeMap<>();
 
