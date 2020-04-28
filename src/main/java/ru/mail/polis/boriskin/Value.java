@@ -11,7 +11,7 @@ public final class Value implements Comparable<Value> {
 
     @Override
     public int compareTo(@NotNull Value V) {
-        // TODO: return comparing
+        return Long.compare(timeStamp, V.timeStamp);
     }
 
     Value(final long timeStamp, final ByteBuffer data) {
@@ -20,7 +20,7 @@ public final class Value implements Comparable<Value> {
     }
 
     public static Value valueOf(final ByteBuffer data) {
-        // TODO: data.duplicate()
+        return new Value(Utils.getTime(), data.duplicate());
     }
 
     public long getTimeStamp() {
@@ -36,7 +36,7 @@ public final class Value implements Comparable<Value> {
 
 
     static Value deadTest() {
-        // TODO: doNothing
+        return new Value(Utils.getTime(), null);
     }
 
     boolean wasRemoved() {

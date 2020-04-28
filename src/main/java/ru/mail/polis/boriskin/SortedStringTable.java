@@ -9,11 +9,11 @@ import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 
-public class SortedStringTable implements SSTable {
+public class SortedStringTable implements Table {
     private final long size;
 
     @Override
-    public long size() {
+    public long getSize() {
         return size;
     }
 

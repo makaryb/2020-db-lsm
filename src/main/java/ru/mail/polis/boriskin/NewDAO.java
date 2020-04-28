@@ -1,7 +1,5 @@
 package ru.mail.polis.boriskin;
 
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Table;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.DAO;
 import ru.mail.polis.Record;
@@ -19,7 +17,6 @@ import java.util.*;
  * @author Makary Boriskin
  */
 public final class NewDAO implements DAO {
-    private final SortedMap<ByteBuffer, ByteBuffer> map = new TreeMap<>();
 
     private final File base;
     private final long maxHeapThreshold;
@@ -34,7 +31,7 @@ public final class NewDAO implements DAO {
         assert maxHeapThreshold >= 0L;
         this.maxHeapThreshold = maxHeapThreshold;
 
-//        memTable =  TODO: new MemTable();
+        memTable = new MemTable();
         ssTableCollection = new ArrayList<SortedStringTable>();
 
         Files.walkFileTree(base.toPath(), EnumSet.of(FileVisitOption.FOLLOW_LINKS), 1,
@@ -52,16 +49,11 @@ public final class NewDAO implements DAO {
         gen = ssTableCollection.size() - 1;
     }
 
-
-
-    private static Record apply(@NotNull final Map.Entry<ByteBuffer, ByteBuffer> entry) {
-        return Record.of(entry.getKey(), entry.getValue());
-    }
-
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
         // TODO:
+        return null;
     }
 
     @Override

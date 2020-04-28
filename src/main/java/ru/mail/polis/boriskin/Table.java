@@ -6,9 +6,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-public interface SSTable {
+public interface Table {
 
-    long size();
+    long getSize();
 
     @NotNull
     Iterator<Cell> iterator(@NotNull ByteBuffer point) throws IOException;
