@@ -3,7 +3,7 @@ package ru.mail.polis.boriskin;
 import java.nio.ByteBuffer;
 
 final class Bytes {
-    Bytes() {}
+    private Bytes() {}
 
     static ByteBuffer fromInt(final int value) {
         final ByteBuffer res = ByteBuffer.allocate(Integer.BYTES);

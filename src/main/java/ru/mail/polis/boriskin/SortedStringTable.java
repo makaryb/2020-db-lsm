@@ -11,18 +11,18 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import static java.lang.Integer.*;
 import static java.lang.Integer.BYTES;
-import static java.lang.Integer.MAX_VALUE;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.channels.FileChannel.MapMode.READ_ONLY;
 import static java.nio.file.StandardOpenOption.*;
 
 public class SortedStringTable implements Table {
     private final long size;
-    private int rows;
+    private final int rows;
 
-    private ByteBuffer cells;
-    private IntBuffer offsets;
+    private final ByteBuffer cells;
+    private final IntBuffer offsets;
 
     @Override
     public long getSize() {
@@ -49,7 +49,7 @@ public class SortedStringTable implements Table {
     }
 
     private Cell findCell(final int index) {
-        if (0 > index || index >= rows) {
+        if ((index < 0) || (index >= rows)) {
             throw new AssertionError();
         }
         int offset = offsets.get(index);
@@ -87,10 +87,10 @@ public class SortedStringTable implements Table {
         }
     }
 
-    private int findNext(ByteBuffer point) {
+    private int findNext(final ByteBuffer point) {
         int l = 0;
         int r = rows - 1;
-        while (l <= r) {
+        while (l < r + 1) {
             final int m = l + (r - l) / 2;
             final int cmp = findK(m).compareTo(point);
             if (cmp < 0) {
@@ -105,21 +105,23 @@ public class SortedStringTable implements Table {
     }
 
     private Comparable<ByteBuffer> findK(int index) {
-        assert 0 <= index && index < rows;
+        if ((index < 0) || (index >= rows)) {
+            throw new AssertionError();
+        }
 
         final int offset = offsets.get(index);
         final int sizeOfK = cells.getInt(offset);
         final ByteBuffer K = cells.duplicate();
 
-        K.position(K.position() + sizeOfK);
+        K.position(offset + BYTES);
+        K.limit(K.position() + sizeOfK);
 
         return K.slice();
     }
 
     SortedStringTable(final File f) throws IOException {
         this.size = f.length();
-        if ((size == 0)
-                || (size > MAX_VALUE)) {
+        if ((size == 0) || (size > MAX_VALUE)) {
             throw new AssertionError();
         }
 

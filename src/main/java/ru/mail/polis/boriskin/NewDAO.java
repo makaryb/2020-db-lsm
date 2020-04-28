@@ -13,6 +13,9 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
+import static java.nio.file.FileVisitOption.*;
+import static java.nio.file.FileVisitResult.*;
+
 /**
  * Своя реализация {@link NewDAO} интерфейса {@link DAO}, используя одну из реализаций java.util.SortedMap.
  *
@@ -30,22 +33,24 @@ public final class NewDAO implements DAO {
 
     public NewDAO(final File base, final long maxHeapThreshold) throws IOException {
         this.base = base;
-        assert maxHeapThreshold >= 0L;
+        if (maxHeapThreshold < 0L) {
+            throw new AssertionError();
+        }
         this.maxHeapThreshold = maxHeapThreshold;
 
         memTable = new MemTable();
         ssTableCollection = new ArrayList<SortedStringTable>();
 
-        Files.walkFileTree(base.toPath(), EnumSet.of(FileVisitOption.FOLLOW_LINKS), 1,
+        Files.walkFileTree(base.toPath(), EnumSet.of(FOLLOW_LINKS), 1,
                 new SimpleFileVisitor<>() {
            @Override
            public FileVisitResult visitFile(final Path path,
                                             final BasicFileAttributes attributes) throws IOException {
                if (path.getFileName().toString().endsWith(".db")
-                       && path.getFileName().toString().endsWith("SSTABLE")) {
+                       && path.getFileName().toString().startsWith("SSTABLE")) {
                    ssTableCollection.add(new SortedStringTable(path.toFile()));
                }
-               return FileVisitResult.CONTINUE;
+               return CONTINUE;
            }
         });
         gen = ssTableCollection.size() - 1;
@@ -57,14 +62,14 @@ public final class NewDAO implements DAO {
         final Collection<Iterator<Cell>> filesIterator = new ArrayList<>();
 
         /*
-        SSTables iterators
+        SSTables iterators Module
          */
         for (final SortedStringTable sortedStringTable : ssTableCollection) {
             filesIterator.add(sortedStringTable.iterator(point));
         }
 
         /*
-        MemTable iterator
+        MemTable iterator Module
          */
         filesIterator.add(memTable.iterator(point));
         final Iterator<Cell> cells = Iters.collapseEquals(

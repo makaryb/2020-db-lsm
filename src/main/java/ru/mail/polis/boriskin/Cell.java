@@ -8,9 +8,9 @@ public final class Cell {
     private final ByteBuffer K;
     private final Value V;
 
-    static final Comparator<Cell> COMPARATOR =
-            Comparator.comparing(Cell::getK)
-                    .thenComparing(Cell::getV);
+    static final Comparator<Cell> COMPARATOR = Comparator
+            .comparing(Cell::getK)
+            .thenComparing(Cell::getV);
 
     Cell(final ByteBuffer K, final Value V) {
         this.K = K;

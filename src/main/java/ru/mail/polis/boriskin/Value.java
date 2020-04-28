@@ -11,7 +11,7 @@ public final class Value implements Comparable<Value> {
 
     @Override
     public int compareTo(@NotNull Value V) {
-        return Long.compare(timeStamp, V.timeStamp);
+        return -Long.compare(timeStamp, V.timeStamp);
     }
 
     Value(final long timeStamp, final ByteBuffer data) {
