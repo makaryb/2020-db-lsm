@@ -5,16 +5,15 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static java.lang.Integer.*;
-import static java.nio.ByteOrder.*;
+import static java.lang.Integer.BYTES;
+import static java.lang.Integer.MAX_VALUE;
+import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.channels.FileChannel.MapMode.READ_ONLY;
 import static java.nio.file.StandardOpenOption.*;
 
@@ -128,7 +127,62 @@ public class SortedStringTable implements Table {
                 CREATE_NEW,
                 WRITE)) {
             final List<Integer> offsets = new ArrayList<>();
-            // TODO:
+            int offset = 0;
+            while (cells.hasNext()) {
+                offsets.add(offset);
+                final Cell cell = cells.next();
+
+                /*
+                Key
+                 */
+                final ByteBuffer K = cell.getK();
+                final int sizeOfK = cell.getK().remaining();
+
+                fileChannel.write(Bytes.fromInt(sizeOfK));
+                offset += BYTES;
+                fileChannel.write(K);
+                offset += sizeOfK;
+
+                /*
+                Value
+                 */
+                final Value V = cell.getV();
+
+                /*
+                TimeStamp
+                 */
+                if (V.wasRemoved()) {
+                    fileChannel.write(Bytes.fromLong(-cell.getV().getTimeStamp()));
+                } else {
+                    fileChannel.write(Bytes.fromLong(cell.getV().getTimeStamp()));
+                }
+                offset += Long.BYTES;
+
+                /*
+                back to Value
+                 */
+                if (!V.wasRemoved()) {
+                    final ByteBuffer data = V.getData();
+                    final int sizeOfV = V.getData().remaining();
+
+                    fileChannel.write(Bytes.fromInt(sizeOfV));
+                    offset += BYTES;
+                    fileChannel.write(data);
+                    offset += sizeOfV;
+                }
+            }
+
+            /*
+            Offsets
+             */
+            for (final Integer o : offsets) {
+                fileChannel.write(Bytes.fromInt(o));
+            }
+
+            /*
+            Cells
+             */
+            fileChannel.write(Bytes.fromInt(offsets.size()));
         }
     }
 }
