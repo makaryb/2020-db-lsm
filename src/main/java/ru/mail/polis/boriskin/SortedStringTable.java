@@ -43,11 +43,48 @@ public class SortedStringTable implements Table {
             @Override
             public Cell next() {
                 assert hasNext();
-//                TODO:
-//                return findCell(next++);
-                return null;
+                return findCell(next++);
             }
         };
+    }
+
+    private Cell findCell(final int index) {
+        if (0 > index || index >= rows) {
+            throw new AssertionError();
+        }
+        int offset = offsets.get(index);
+
+        /*
+        Key Module
+         */
+        final int sizeOfK = cells.getInt(offset);
+        offset += BYTES;
+
+        final ByteBuffer K = cells.duplicate();
+        K.position(offset);
+        K.limit(K.position() + sizeOfK);
+        offset += sizeOfK;
+
+        /*
+        TimeStamp Module
+         */
+        final long timeStamp = cells.getLong(offset);
+        offset += Long.BYTES;
+        if (timeStamp < 0) {
+            return new Cell(K.slice(), new Value(-timeStamp, null));
+        } else {
+            /*
+            Values Module
+             */
+            final int sizeOfV = cells.getInt(offset);
+            offset += BYTES;
+
+            final ByteBuffer V = cells.duplicate();
+            V.position(offset);
+            V.limit(V.position() + sizeOfV).position(offset).limit(offset + sizeOfV);
+
+            return new Cell(K.slice(), new Value(timeStamp, V.slice()));
+        }
     }
 
     private int findNext(ByteBuffer point) {
@@ -92,12 +129,12 @@ public class SortedStringTable implements Table {
         }
 
         /*
-        Rows
+        Rows Module
          */
         rows = mapped.getInt((int) (size - BYTES));
 
         /*
-        Offset
+        Offset Module
          */
         final ByteBuffer offsets = mapped.duplicate();
         offsets.position(mapped.limit() - BYTES * rows - BYTES);
@@ -105,7 +142,7 @@ public class SortedStringTable implements Table {
         this.offsets = offsets.slice().asIntBuffer();
 
         /*
-        Cells
+        Cells Module
          */
         final ByteBuffer cells = mapped.duplicate();
         cells.limit(offsets.position());
@@ -133,7 +170,7 @@ public class SortedStringTable implements Table {
                 final Cell cell = cells.next();
 
                 /*
-                Key
+                Key Module
                  */
                 final ByteBuffer K = cell.getK();
                 final int sizeOfK = cell.getK().remaining();
@@ -144,12 +181,12 @@ public class SortedStringTable implements Table {
                 offset += sizeOfK;
 
                 /*
-                Value
+                Value Module
                  */
                 final Value V = cell.getV();
 
                 /*
-                TimeStamp
+                TimeStamp Module
                  */
                 if (V.wasRemoved()) {
                     fileChannel.write(Bytes.fromLong(-cell.getV().getTimeStamp()));
@@ -159,7 +196,7 @@ public class SortedStringTable implements Table {
                 offset += Long.BYTES;
 
                 /*
-                back to Value
+                back to Value Module
                  */
                 if (!V.wasRemoved()) {
                     final ByteBuffer data = V.getData();
@@ -173,14 +210,14 @@ public class SortedStringTable implements Table {
             }
 
             /*
-            Offsets
+            Offsets Module
              */
             for (final Integer o : offsets) {
                 fileChannel.write(Bytes.fromInt(o));
             }
 
             /*
-            Cells
+            Cells Module
              */
             fileChannel.write(Bytes.fromInt(offsets.size()));
         }
