@@ -1,0 +1,45 @@
+package ru.mail.polis.boriskin;
+
+import org.jetbrains.annotations.NotNull;
+
+import java.nio.ByteBuffer;
+
+public final class Value implements Comparable<Value> {
+
+    private final long timeStamp;
+    private final ByteBuffer data;
+
+    @Override
+    public int compareTo(@NotNull Value V) {
+        // TODO: return comparing
+    }
+
+    Value(final long timeStamp, final ByteBuffer data) {
+        this.timeStamp = timeStamp;
+        this.data = data;
+    }
+
+    public static Value valueOf(final ByteBuffer data) {
+        // TODO: data.duplicate()
+    }
+
+    public long getTimeStamp() {
+        return timeStamp;
+    }
+
+    public ByteBuffer getData() {
+        if (data == null) {
+            throw new IllegalArgumentException();
+        }
+        return data.asReadOnlyBuffer();
+    }
+
+
+    static Value deadTest() {
+        // TODO: doNothing
+    }
+
+    boolean wasRemoved() {
+        return data == null;
+    }
+}
