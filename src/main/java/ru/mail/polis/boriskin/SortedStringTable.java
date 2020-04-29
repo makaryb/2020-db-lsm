@@ -12,19 +12,21 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static java.lang.Integer.*;
 import static java.lang.Integer.BYTES;
+import static java.lang.Integer.MAX_VALUE;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.channels.FileChannel.MapMode.READ_ONLY;
-import static java.nio.file.StandardOpenOption.*;
+import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.WRITE;
+import static java.nio.file.StandardOpenOption.CREATE_NEW;
 
 public class SortedStringTable implements Table {
     private final long size;
     private final int rows;
 
-    private final ByteBuffer cells;
     // хранит указатели на начало каждой строки
     private final IntBuffer offsets;
+    private final ByteBuffer cells;
 
     @Override
     public long getSize() {
@@ -33,7 +35,7 @@ public class SortedStringTable implements Table {
 
     @NotNull
     @Override
-    public Iterator<TableCell> iterator(@NotNull ByteBuffer point) throws IOException {
+    public Iterator<TableCell> iterator(@NotNull final ByteBuffer point) throws IOException {
         return new Iterator<TableCell>() {
             int next = findNext(point);
 
@@ -55,7 +57,7 @@ public class SortedStringTable implements Table {
     }
 
     private TableCell findCell(final int index) {
-        if ((index < 0) || (index >= rows)) {
+        if (index < 0 || index >= rows) {
             throw new AssertionError();
         }
 
@@ -115,8 +117,8 @@ public class SortedStringTable implements Table {
         return l;
     }
 
-    private Comparable<ByteBuffer> findK(int index) {
-        if ((index < 0) || (index >= rows)) {
+    private Comparable<ByteBuffer> findK(final int index) {
+        if (index < 0 || index >= rows) {
             throw new AssertionError();
         }
 
@@ -134,7 +136,7 @@ public class SortedStringTable implements Table {
     // После записи на диск поддерживает только операции чтения.
     SortedStringTable(final File f) throws IOException {
         this.size = f.length();
-        if ((size == 0) || (size > MAX_VALUE)) {
+        if (size == 0 || size > MAX_VALUE) {
             throw new AssertionError();
         }
 
@@ -145,24 +147,24 @@ public class SortedStringTable implements Table {
 
         rows = mapped.getInt((int) (size - BYTES));
 
-        final ByteBuffer offsets = mapped.duplicate();
-        final ByteBuffer cells = mapped.duplicate();
+        final ByteBuffer offsetsByteBuffer = mapped.duplicate();
+        final ByteBuffer cellsByteBuffer = mapped.duplicate();
 
-        offsets.position(mapped.limit() - BYTES * rows - BYTES);
-        offsets.limit(mapped.limit() - BYTES);
-        cells.limit(offsets.position());
+        offsetsByteBuffer.position(mapped.limit() - BYTES * rows - BYTES);
+        offsetsByteBuffer.limit(mapped.limit() - BYTES);
+        cellsByteBuffer.limit(offsetsByteBuffer.position());
 
-        this.offsets = offsets.slice().asIntBuffer();
-        this.cells = cells.slice();
+        this.offsets = offsetsByteBuffer.slice().asIntBuffer();
+        this.cells = cellsByteBuffer.slice();
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer K, @NotNull ByteBuffer V) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer val) throws IOException {
         throw new UnsupportedOperationException("");
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer K) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         throw new UnsupportedOperationException("");
     }
 

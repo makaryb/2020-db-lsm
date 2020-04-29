@@ -3,7 +3,9 @@ package ru.mail.polis.boriskin;
 import java.nio.ByteBuffer;
 
 final class Bytes {
-    private Bytes() {}
+    private Bytes() {
+        // do nothing
+    }
 
     // для доступа к ByteBuffer по переданному int
     static ByteBuffer fromInt(final int value) {

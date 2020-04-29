@@ -15,7 +15,7 @@ public interface Table {
     @NotNull
     Iterator<TableCell> iterator(@NotNull ByteBuffer point) throws IOException;
 
-    void upsert(@NotNull ByteBuffer K, @NotNull ByteBuffer V) throws IOException;
+    void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer val) throws IOException;
 
-    void remove(@NotNull ByteBuffer K) throws IOException;
+    void remove(@NotNull ByteBuffer key) throws IOException;
 }

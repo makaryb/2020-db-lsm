@@ -11,8 +11,8 @@ public final class Value implements Comparable<Value> {
     private final ByteBuffer data;
 
     @Override
-    public int compareTo(@NotNull Value V) {
-        return -Long.compare(timeStamp, V.timeStamp);
+    public int compareTo(@NotNull final Value val) {
+        return -Long.compare(timeStamp, val.timeStamp);
     }
 
     Value(final long timeStamp, final ByteBuffer data) {
@@ -20,6 +20,12 @@ public final class Value implements Comparable<Value> {
         this.data = data;
     }
 
+    /**
+     * Метод доступа к данным в ячейке значения в концепции подхода
+     *
+     * @param data данные
+     * @return Возвращает из ячейки значения версию и значение
+     */
     public static Value valueOf(final ByteBuffer data) {
         // по рекомендации из лекции в качестве значения версии
         // используется отметка времени
@@ -30,6 +36,11 @@ public final class Value implements Comparable<Value> {
         return timeStamp;
     }
 
+    /**
+     * Метод создания нового ByteBuffer с теми же данными
+     *
+     * @return Возвращает новый read-only ByteBuffer с той же data, что и в текущем
+     */
     public ByteBuffer getData() {
         if (data == null) {
             throw new IllegalArgumentException();

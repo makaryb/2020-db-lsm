@@ -9,13 +9,19 @@ import ru.mail.polis.Record;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.Iterator;
 
-import static java.nio.file.FileVisitOption.*;
-import static java.nio.file.FileVisitResult.*;
-import static java.nio.file.StandardCopyOption.*;
+import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
+import static java.nio.file.FileVisitResult.CONTINUE;
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 
 /**
  * Своя реализация {@link NewDAO} интерфейса {@link DAO}, используя одну из реализаций java.util.SortedMap.
@@ -33,6 +39,15 @@ public final class NewDAO implements DAO {
     // счетчик поколений
     private int gen;
 
+    private static final String NAME = "SortedStringTABLE";
+
+    /**
+     * Конструктор {link NewDAO} instance
+     *
+     * @param base папка диска, где хранятся данные
+     * @param maxHeapThreshold порог, согласно которому судим когда сбросить таблицу на диск
+     * @throws IOException
+     */
     public NewDAO(final File base, final long maxHeapThreshold) throws IOException {
         this.base = base;
         if (maxHeapThreshold < 0L) {
@@ -50,7 +65,7 @@ public final class NewDAO implements DAO {
            public FileVisitResult visitFile(final Path path,
                                             final BasicFileAttributes attributes) throws IOException {
                if (path.getFileName().toString().endsWith(".db")
-                       && path.getFileName().toString().startsWith("SortedStringTABLE")) {
+                       && path.getFileName().toString().startsWith(NAME)) {
                    ssTableCollection.add(new SortedStringTable(path.toFile()));
                }
                return CONTINUE;
@@ -94,8 +109,8 @@ public final class NewDAO implements DAO {
 
     // вставить-обновить
     @Override
-    public void upsert(@NotNull final ByteBuffer K, @NotNull final ByteBuffer V) throws IOException {
-        memTable.upsert(K, V);
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer val) throws IOException {
+        memTable.upsert(key, val);
         // когда размер таблицы достигает порога,
         // сбрасываем данную таблицу на диск,
         // где она хранится в бинарном сериализованном виде
@@ -105,8 +120,8 @@ public final class NewDAO implements DAO {
     }
 
     @Override
-    public void remove(@NotNull final ByteBuffer K) throws IOException {
-        memTable.remove(K);
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
+        memTable.remove(key);
         // сбрасываем таблицу на диск
         if (memTable.getSize() >= maxHeapThreshold) {
             flush();
@@ -121,14 +136,14 @@ public final class NewDAO implements DAO {
 
     private void flush() throws IOException {
         // в начале нужно писать во временный файл
-        final File temp = new File(base, "SortedStringTABLE" + gen + ".tmp");
+        final File temp = new File(base, NAME + gen + ".tmp");
 
         SortedStringTable.writeMemTableDataToDisk(
                 memTable.iterator(ByteBuffer.allocate(0)),
                 temp);
 
         // превращаем в постоянный файл
-        final File dest = new File(base, "SortedStringTABLE" + gen + ".db");
+        final File dest = new File(base, NAME + gen + ".db");
         Files.move(temp.toPath(), dest.toPath(), ATOMIC_MOVE);
 
         // обновляем счетчик поколений

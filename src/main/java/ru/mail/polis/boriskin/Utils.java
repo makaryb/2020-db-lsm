@@ -5,7 +5,9 @@ final class Utils {
     // обогащение
     private static int counter;
 
-    private Utils() {}
+    private Utils() {
+        // do nothing
+    }
 
     static long getTime() {
         final long currentTime = System.nanoTime();

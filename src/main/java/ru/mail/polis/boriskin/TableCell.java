@@ -5,23 +5,23 @@ import java.util.Comparator;
 
 final class TableCell {
 
-    private final ByteBuffer K;
-    private final Value V;
+    private final ByteBuffer key;
+    private final Value val;
 
     static final Comparator<TableCell> COMPARATOR = Comparator
             .comparing(TableCell::getK)
             .thenComparing(TableCell::getV);
 
-    TableCell(final ByteBuffer K, final Value V) {
-        this.K = K;
-        this.V = V;
+    TableCell(final ByteBuffer key, final Value val) {
+        this.key = key;
+        this.val = val;
     }
 
     public ByteBuffer getK() {
-        return K.asReadOnlyBuffer();
+        return key.asReadOnlyBuffer();
     }
 
     public Value getV() {
-        return V;
+        return val;
     }
 }

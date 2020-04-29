@@ -21,21 +21,21 @@ public final class MemTable implements Table {
 
     @NotNull
     @Override
-    public Iterator<TableCell> iterator(@NotNull ByteBuffer point) throws IOException {
+    public Iterator<TableCell> iterator(@NotNull final ByteBuffer point) throws IOException {
         return Iterators.transform(
           map.tailMap(point).entrySet().iterator(),
           e -> new TableCell(e.getKey(), e.getValue()));
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer K, @NotNull ByteBuffer V) throws IOException {
-        final Value prev = map.put(K, Value.valueOf(V));
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer val) throws IOException {
+        final Value prev = map.put(key, Value.valueOf(val));
         if (prev == null) {
-            size += K.remaining() + V.remaining();
+            size += key.remaining() + val.remaining();
         } else if (prev.wasRemoved()) {
-            size += V.remaining();
+            size += val.remaining();
         } else {
-            size += V.remaining() - prev.getData().remaining();
+            size += val.remaining() - prev.getData().remaining();
         }
     }
 
@@ -45,11 +45,11 @@ public final class MemTable implements Table {
     // (самое последнее значение ключа - что он удален).
     // Пользователь получает - нет такого ключа.
     @Override
-    public void remove(@NotNull ByteBuffer K) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         // сохраняем могилку (говорим, что значение removed)
-        final Value prev = map.put(K, Value.tombstone());
+        final Value prev = map.put(key, Value.tombstone());
         if (prev == null) {
-            size += K.remaining();
+            size += key.remaining();
         } else if (!prev.wasRemoved()) {
             size -= prev.getData().remaining();
         }
