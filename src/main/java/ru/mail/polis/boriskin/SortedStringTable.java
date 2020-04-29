@@ -61,11 +61,7 @@ public class SortedStringTable implements Table {
 
         int offset = offsets.get(index);
 
-        /*
-        Key Module
-         */
-
-        // Используем длину ключа
+        // используем длину ключа
         final int sizeOfK = cells.getInt(offset);
         offset += BYTES;
 
@@ -74,11 +70,10 @@ public class SortedStringTable implements Table {
         K.limit(K.position() + sizeOfK);
         offset += sizeOfK;
 
-        /*
-        TimeStamp Module
-         */
+        // работа с версией
         final long timeStamp = cells.getLong(offset);
         offset += Long.BYTES;
+
         if (timeStamp < 0) {
             // если это могилка, то дальше ничего нет
             return new TableCell(K.slice(), new Value(-timeStamp, null));
@@ -182,9 +177,6 @@ public class SortedStringTable implements Table {
 
                 final TableCell tableCell = cells.next();
 
-                /*
-                Key Module
-                 */
                 final ByteBuffer K = tableCell.getK();
                 final int sizeOfK = tableCell.getK().remaining();
 
@@ -193,9 +185,6 @@ public class SortedStringTable implements Table {
                 fileChannel.write(K);
                 offset += sizeOfK;
 
-                /*
-                Value Module
-                 */
                 final Value V = tableCell.getV();
 
                 /*
@@ -211,9 +200,6 @@ public class SortedStringTable implements Table {
 
                 offset += Long.BYTES;
 
-                /*
-                back to Value Module
-                 */
                 if (!V.wasRemoved()) {
                     final ByteBuffer data = V.getData();
                     final int sizeOfV = V.getData().remaining();
@@ -225,16 +211,10 @@ public class SortedStringTable implements Table {
                 }
             }
 
-            /*
-            Offsets Module
-             */
             for (final Integer o : offsets) {
                 fileChannel.write(Bytes.fromInt(o));
             }
 
-            /*
-            Cells Module
-             */
             fileChannel.write(Bytes.fromInt(offsets.size()));
         }
     }
