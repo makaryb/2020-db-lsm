@@ -21,10 +21,10 @@ public final class Value implements Comparable<Value> {
     }
 
     /**
-     * Метод доступа к данным в ячейке значения в концепции подхода
+     * Метод доступа к данным в ячейке значения в концепции подхода.
      *
-     * @param data данные
-     * @return Возвращает из ячейки значения версию и значение
+     * @param data данные;
+     * @return Возвращает из ячейки значения версию и значение.
      */
     public static Value valueOf(final ByteBuffer data) {
         // по рекомендации из лекции в качестве значения версии
@@ -37,9 +37,9 @@ public final class Value implements Comparable<Value> {
     }
 
     /**
-     * Метод создания нового ByteBuffer с теми же данными
+     * Метод создания нового ByteBuffer с теми же данными.
      *
-     * @return Возвращает новый read-only ByteBuffer с той же data, что и в текущем
+     * @return Возвращает новый read-only ByteBuffer с той же data, что и в текущем.
      */
     public ByteBuffer getData() {
         if (data == null) {

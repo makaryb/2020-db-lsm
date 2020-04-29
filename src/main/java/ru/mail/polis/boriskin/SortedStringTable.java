@@ -5,20 +5,14 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-
-import static java.lang.Integer.BYTES;
-import static java.lang.Integer.MAX_VALUE;
-import static java.nio.ByteOrder.BIG_ENDIAN;
-import static java.nio.channels.FileChannel.MapMode.READ_ONLY;
-import static java.nio.file.StandardOpenOption.READ;
-import static java.nio.file.StandardOpenOption.WRITE;
-import static java.nio.file.StandardOpenOption.CREATE_NEW;
 
 public class SortedStringTable implements Table {
     private final long size;
@@ -65,7 +59,7 @@ public class SortedStringTable implements Table {
 
         // используем длину ключа
         final int sizeOfK = cells.getInt(offset);
-        offset += BYTES;
+        offset += Integer.BYTES;
 
         final ByteBuffer K = cells.duplicate();
         K.position(offset);
@@ -84,7 +78,7 @@ public class SortedStringTable implements Table {
             Values Module
              */
             final int sizeOfV = cells.getInt(offset);
-            offset += BYTES;
+            offset += Integer.BYTES;
 
             final ByteBuffer V = cells.duplicate();
             V.position(offset);
@@ -126,7 +120,7 @@ public class SortedStringTable implements Table {
         final int sizeOfK = cells.getInt(offset);
         final ByteBuffer K = cells.duplicate();
 
-        K.position(offset + BYTES);
+        K.position(offset + Integer.BYTES);
         K.limit(K.position() + sizeOfK);
 
         return K.slice();
@@ -136,22 +130,22 @@ public class SortedStringTable implements Table {
     // После записи на диск поддерживает только операции чтения.
     SortedStringTable(final File f) throws IOException {
         this.size = f.length();
-        if (size == 0 || size > MAX_VALUE) {
+        if (size == 0 || size > Integer.MAX_VALUE) {
             throw new AssertionError();
         }
 
         final MappedByteBuffer mapped;
-        try (FileChannel fileChannel = FileChannel.open(f.toPath(), READ)) {
-            mapped = (MappedByteBuffer) fileChannel.map(READ_ONLY, 0L, fileChannel.size()).order(BIG_ENDIAN);
+        try (FileChannel fileChannel = FileChannel.open(f.toPath(), StandardOpenOption.READ)) {
+            mapped = (MappedByteBuffer) fileChannel.map(FileChannel.MapMode.READ_ONLY, 0L, fileChannel.size()).order(ByteOrder.BIG_ENDIAN);
         }
 
-        rows = mapped.getInt((int) (size - BYTES));
+        rows = mapped.getInt((int) (size - Integer.BYTES));
 
         final ByteBuffer offsetsByteBuffer = mapped.duplicate();
         final ByteBuffer cellsByteBuffer = mapped.duplicate();
 
-        offsetsByteBuffer.position(mapped.limit() - BYTES * rows - BYTES);
-        offsetsByteBuffer.limit(mapped.limit() - BYTES);
+        offsetsByteBuffer.position(mapped.limit() - Integer.BYTES * rows - Integer.BYTES);
+        offsetsByteBuffer.limit(mapped.limit() - Integer.BYTES);
         cellsByteBuffer.limit(offsetsByteBuffer.position());
 
         this.offsets = offsetsByteBuffer.slice().asIntBuffer();
@@ -170,8 +164,8 @@ public class SortedStringTable implements Table {
 
     static void writeMemTableDataToDisk(final Iterator<TableCell> cells, final File target) throws IOException {
         try (FileChannel fileChannel = FileChannel.open(target.toPath(),
-                CREATE_NEW,
-                WRITE)) {
+                StandardOpenOption.CREATE_NEW,
+                StandardOpenOption.WRITE)) {
             final List<Integer> offsets = new ArrayList<>();
             int offset = 0;
             while (cells.hasNext()) {
@@ -183,7 +177,7 @@ public class SortedStringTable implements Table {
                 final int sizeOfK = tableCell.getK().remaining();
 
                 fileChannel.write(Bytes.fromInt(sizeOfK));
-                offset += BYTES;
+                offset += Integer.BYTES;
                 fileChannel.write(K);
                 offset += sizeOfK;
 
@@ -207,7 +201,7 @@ public class SortedStringTable implements Table {
                     final int sizeOfV = V.getData().remaining();
 
                     fileChannel.write(Bytes.fromInt(sizeOfV));
-                    offset += BYTES;
+                    offset += Integer.BYTES;
                     fileChannel.write(data);
                     offset += sizeOfV;
                 }

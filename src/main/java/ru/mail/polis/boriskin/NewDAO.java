@@ -24,7 +24,7 @@ import static java.nio.file.FileVisitResult.CONTINUE;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 
 /**
- * Своя реализация {@link NewDAO} интерфейса {@link DAO}, используя одну из реализаций java.util.SortedMap.
+ * Своя реализация {@link NewDAO} интерфейса {@link DAO}.
  *
  * @author Makary Boriskin
  */
@@ -42,11 +42,11 @@ public final class NewDAO implements DAO {
     private static final String NAME = "SortedStringTABLE";
 
     /**
-     * Конструктор {link NewDAO} instance
+     * Конструктор {link NewDAO} instance.
      *
-     * @param base папка диска, где хранятся данные
-     * @param maxHeapThreshold порог, согласно которому судим когда сбросить таблицу на диск
-     * @throws IOException
+     * @param base папка диска, где хранятся данные;
+     * @param maxHeapThreshold порог, согласно которому судим когда сбросить таблицу на диск;
+     * @throws IOException обработка получения на вход не того base.
      */
     public NewDAO(final File base, final long maxHeapThreshold) throws IOException {
         this.base = base;
