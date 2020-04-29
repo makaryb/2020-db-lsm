@@ -18,11 +18,6 @@ import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.channels.FileChannel.MapMode.READ_ONLY;
 import static java.nio.file.StandardOpenOption.*;
 
-/**
- * Отсортированная таблица {@link SortedStringTable} на диске.
- * После записи на диск поддерживает только операции чтения.
- *
- */
 public class SortedStringTable implements Table {
     private final long size;
     private final int rows;
@@ -38,8 +33,8 @@ public class SortedStringTable implements Table {
 
     @NotNull
     @Override
-    public Iterator<Cell> iterator(@NotNull ByteBuffer point) throws IOException {
-        return new Iterator<Cell>() {
+    public Iterator<TableCell> iterator(@NotNull ByteBuffer point) throws IOException {
+        return new Iterator<TableCell>() {
             int next = findNext(point);
 
             @Override
@@ -52,14 +47,14 @@ public class SortedStringTable implements Table {
             // выбираем самое свежее значение - возвращаем его пользователю.
             // движемся дальше
             @Override
-            public Cell next() {
+            public TableCell next() {
                 assert hasNext();
                 return findCell(next++);
             }
         };
     }
 
-    private Cell findCell(final int index) {
+    private TableCell findCell(final int index) {
         if ((index < 0) || (index >= rows)) {
             throw new AssertionError();
         }
@@ -86,7 +81,7 @@ public class SortedStringTable implements Table {
         offset += Long.BYTES;
         if (timeStamp < 0) {
             // если это могилка, то дальше ничего нет
-            return new Cell(K.slice(), new Value(-timeStamp, null));
+            return new TableCell(K.slice(), new Value(-timeStamp, null));
         } else {
             /*
             Values Module
@@ -99,7 +94,7 @@ public class SortedStringTable implements Table {
             V.limit(V.position() + sizeOfV).position(offset).limit(offset + sizeOfV);
 
             // если это нормальное значение, то дальше длина этого значения и само значение
-            return new Cell(K.slice(), new Value(timeStamp, V.slice()));
+            return new TableCell(K.slice(), new Value(timeStamp, V.slice()));
         }
     }
 
@@ -140,6 +135,8 @@ public class SortedStringTable implements Table {
         return K.slice();
     }
 
+    // Отсортированная таблица на диске.
+    // После записи на диск поддерживает только операции чтения.
     SortedStringTable(final File f) throws IOException {
         this.size = f.length();
         if ((size == 0) || (size > MAX_VALUE)) {
@@ -151,24 +148,16 @@ public class SortedStringTable implements Table {
             mapped = (MappedByteBuffer) fileChannel.map(READ_ONLY, 0L, fileChannel.size()).order(BIG_ENDIAN);
         }
 
-        /*
-        Rows Module
-         */
         rows = mapped.getInt((int) (size - BYTES));
 
-        /*
-        Offset Module
-         */
         final ByteBuffer offsets = mapped.duplicate();
+        final ByteBuffer cells = mapped.duplicate();
+
         offsets.position(mapped.limit() - BYTES * rows - BYTES);
         offsets.limit(mapped.limit() - BYTES);
-        this.offsets = offsets.slice().asIntBuffer();
-
-        /*
-        Cells Module
-         */
-        final ByteBuffer cells = mapped.duplicate();
         cells.limit(offsets.position());
+
+        this.offsets = offsets.slice().asIntBuffer();
         this.cells = cells.slice();
     }
 
@@ -182,7 +171,7 @@ public class SortedStringTable implements Table {
         throw new UnsupportedOperationException("");
     }
 
-    static void writeMemTableDataToDisk(final Iterator<Cell> cells, final File target) throws IOException {
+    static void writeMemTableDataToDisk(final Iterator<TableCell> cells, final File target) throws IOException {
         try (FileChannel fileChannel = FileChannel.open(target.toPath(),
                 CREATE_NEW,
                 WRITE)) {
@@ -191,13 +180,13 @@ public class SortedStringTable implements Table {
             while (cells.hasNext()) {
                 offsets.add(offset);
 
-                final Cell cell = cells.next();
+                final TableCell tableCell = cells.next();
 
                 /*
                 Key Module
                  */
-                final ByteBuffer K = cell.getK();
-                final int sizeOfK = cell.getK().remaining();
+                final ByteBuffer K = tableCell.getK();
+                final int sizeOfK = tableCell.getK().remaining();
 
                 fileChannel.write(Bytes.fromInt(sizeOfK));
                 offset += BYTES;
@@ -207,7 +196,7 @@ public class SortedStringTable implements Table {
                 /*
                 Value Module
                  */
-                final Value V = cell.getV();
+                final Value V = tableCell.getV();
 
                 /*
                 TimeStamp Module
@@ -215,10 +204,11 @@ public class SortedStringTable implements Table {
                 чтобы можно было взять строки и по значению версии определить что свежее
                  */
                 if (V.wasRemoved()) {
-                    fileChannel.write(Bytes.fromLong(-cell.getV().getTimeStamp()));
+                    fileChannel.write(Bytes.fromLong(-tableCell.getV().getTimeStamp()));
                 } else {
-                    fileChannel.write(Bytes.fromLong(cell.getV().getTimeStamp()));
+                    fileChannel.write(Bytes.fromLong(tableCell.getV().getTimeStamp()));
                 }
+
                 offset += Long.BYTES;
 
                 /*

@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 final class Bytes {
     private Bytes() {}
 
+    // для доступа к ByteBuffer по переданному int
     static ByteBuffer fromInt(final int value) {
         final ByteBuffer res = ByteBuffer.allocate(Integer.BYTES);
         res.putInt(value);
@@ -12,6 +13,7 @@ final class Bytes {
         return res;
     }
 
+    // для доступа к ByteBuffer по переданному long
     static ByteBuffer fromLong(final long value) {
         final ByteBuffer res = ByteBuffer.allocate(Long.BYTES);
         res.putLong(value);

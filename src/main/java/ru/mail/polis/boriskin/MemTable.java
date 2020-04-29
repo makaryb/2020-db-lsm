@@ -21,10 +21,10 @@ public final class MemTable implements Table {
 
     @NotNull
     @Override
-    public Iterator<Cell> iterator(@NotNull ByteBuffer point) throws IOException {
+    public Iterator<TableCell> iterator(@NotNull ByteBuffer point) throws IOException {
         return Iterators.transform(
           map.tailMap(point).entrySet().iterator(),
-          e -> new Cell(e.getKey(), e.getValue()));
+          e -> new TableCell(e.getKey(), e.getValue()));
     }
 
     @Override

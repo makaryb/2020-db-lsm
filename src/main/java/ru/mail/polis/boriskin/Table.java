@@ -13,7 +13,7 @@ public interface Table {
     long getSize();
 
     @NotNull
-    Iterator<Cell> iterator(@NotNull ByteBuffer point) throws IOException;
+    Iterator<TableCell> iterator(@NotNull ByteBuffer point) throws IOException;
 
     void upsert(@NotNull ByteBuffer K, @NotNull ByteBuffer V) throws IOException;
 

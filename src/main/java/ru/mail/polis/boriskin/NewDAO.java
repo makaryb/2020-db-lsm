@@ -65,7 +65,7 @@ public final class NewDAO implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer point) throws IOException {
-        final Collection<Iterator<Cell>> filesIterator = new ArrayList<>();
+        final Collection<Iterator<TableCell>> filesIterator = new ArrayList<>();
 
         /*
         SSTables iterators Module
@@ -79,11 +79,11 @@ public final class NewDAO implements DAO {
          */
         filesIterator.add(memTable.iterator(point));
         // итератор мерджит разные потоки и выбирает самое актуальное значение
-        final Iterator<Cell> cells = Iters.collapseEquals(
-                Iterators.mergeSorted(filesIterator, Cell.COMPARATOR),
-                Cell::getK);
+        final Iterator<TableCell> cells = Iters.collapseEquals(
+                Iterators.mergeSorted(filesIterator, TableCell.COMPARATOR),
+                TableCell::getK);
         // может быть "живое" значение, а может быть, что значение по ключу удалили в момент времени Time Stamp
-        final Iterator<Cell> alive = Iterators.filter(cells,
+        final Iterator<TableCell> alive = Iterators.filter(cells,
                 cell -> !cell.getV().wasRemoved());
         // после мерджа ячеек разных таблиц,
         // при возвращении итератора пользователю:
