@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -145,9 +146,9 @@ public class SortedStringTable implements Table {
             throw new AssertionError();
         }
 
-        final ByteBuffer mapped;
+        final MappedByteBuffer mapped;
         try (FileChannel fileChannel = FileChannel.open(f.toPath(), READ)) {
-            mapped = fileChannel.map(READ_ONLY, 0L, fileChannel.size()).order(BIG_ENDIAN);
+            mapped = (MappedByteBuffer) fileChannel.map(READ_ONLY, 0L, fileChannel.size()).order(BIG_ENDIAN);
         }
 
         /*
