@@ -15,6 +15,7 @@ import java.util.*;
 
 import static java.nio.file.FileVisitOption.*;
 import static java.nio.file.FileVisitResult.*;
+import static java.nio.file.StandardCopyOption.*;
 
 /**
  * Своя реализация {@link NewDAO} интерфейса {@link DAO}, используя одну из реализаций java.util.SortedMap.
@@ -29,6 +30,7 @@ public final class NewDAO implements DAO {
     private Table memTable;
     private final Collection<SortedStringTable> ssTableCollection;
 
+    // счетчик поколений
     private int gen;
 
     public NewDAO(final File base, final long maxHeapThreshold) throws IOException {
@@ -41,18 +43,22 @@ public final class NewDAO implements DAO {
         memTable = new MemTable();
         ssTableCollection = new ArrayList<SortedStringTable>();
 
+        // сканируем иерархию в папке с целью понять, что там лежат SSTable'ы
         Files.walkFileTree(base.toPath(), EnumSet.of(FOLLOW_LINKS), 1,
                 new SimpleFileVisitor<>() {
            @Override
            public FileVisitResult visitFile(final Path path,
                                             final BasicFileAttributes attributes) throws IOException {
                if (path.getFileName().toString().endsWith(".db")
-                       && path.getFileName().toString().startsWith("SSTABLE")) {
+                       && path.getFileName().toString().startsWith("SortedStringTABLE")) {
                    ssTableCollection.add(new SortedStringTable(path.toFile()));
                }
                return CONTINUE;
            }
         });
+
+        // более свежая версия из того, что лежит на диске
+        // (0 - старая, size()-1 - самая новая)
         gen = ssTableCollection.size() - 1;
     }
 
@@ -72,42 +78,63 @@ public final class NewDAO implements DAO {
         MemTable iterator Module
          */
         filesIterator.add(memTable.iterator(point));
+        // итератор мерджит разные потоки и выбирает самое актуальное значение
         final Iterator<Cell> cells = Iters.collapseEquals(
                 Iterators.mergeSorted(filesIterator, Cell.COMPARATOR),
                 Cell::getK);
-        final Iterator<Cell> transforms = Iterators.filter(cells,
+        // может быть "живое" значение, а может быть, что значение по ключу удалили в момент времени Time Stamp
+        final Iterator<Cell> alive = Iterators.filter(cells,
                 cell -> !cell.getV().wasRemoved());
-
-        return Iterators.transform(transforms,
+        // после мерджа ячеек разных таблиц,
+        // при возвращении итератора пользователю:
+        // в этот момент превращает их в рекорды (transform)
+        return Iterators.transform(alive,
                 cell -> Record.of(cell.getK(), cell.getV().getData()));
-
     }
 
+    // вставить-обновить
     @Override
     public void upsert(@NotNull final ByteBuffer K, @NotNull final ByteBuffer V) throws IOException {
         memTable.upsert(K, V);
+        // когда размер таблицы достигает порога,
+        // сбрасываем данную таблицу на диск,
+        // где она хранится в бинарном сериализованном виде
         if (memTable.getSize() >= maxHeapThreshold) {
-            close();
+            flush();
         }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer K) throws IOException {
         memTable.remove(K);
+        // сбрасываем таблицу на диск
         if (memTable.getSize() >= maxHeapThreshold) {
-            close();
+            flush();
         }
     }
 
     @Override
     public void close() throws IOException {
-        final File temp = new File(base, "SSTABLE" + gen + ".tmp");
+        // сохранить все, что мы не сохранили
+        flush();
+    }
+
+    private void flush() throws IOException {
+        // в начале нужно писать во временный файл
+        final File temp = new File(base, "SortedStringTABLE" + gen + ".tmp");
+
         SortedStringTable.writeMemTableDataToDisk(
                 memTable.iterator(ByteBuffer.allocate(0)),
                 temp);
-        final File dest = new File(base, "SSTABLE" + gen + ".db");
-        Files.move(temp.toPath(), dest.toPath(), StandardCopyOption.ATOMIC_MOVE);
+
+        // превращаем в постоянный файл
+        final File dest = new File(base, "SortedStringTABLE" + gen + ".db");
+        Files.move(temp.toPath(), dest.toPath(), ATOMIC_MOVE);
+
+        // обновляем счетчик поколений
         gen++;
+        // заменяем MemTable в памяти на пустой
         memTable = new MemTable();
+        // таким образом, на диске копятся SSTable'ы + есть пустой-непустой MemTable в памяти
     }
 }

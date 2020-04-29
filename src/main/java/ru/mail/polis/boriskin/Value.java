@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 
 public final class Value implements Comparable<Value> {
 
+    // либо ByteBuffer, либо могилка + Time Stamp (версия)
     private final long timeStamp;
     private final ByteBuffer data;
 
@@ -20,6 +21,8 @@ public final class Value implements Comparable<Value> {
     }
 
     public static Value valueOf(final ByteBuffer data) {
+        // по рекомендации из лекции в качестве значения версии
+        // используется отметка времени
         return new Value(Utils.getTime(), data.duplicate());
     }
 
@@ -34,8 +37,8 @@ public final class Value implements Comparable<Value> {
         return data.asReadOnlyBuffer();
     }
 
-
-    static Value deadTest() {
+    static Value tombstone() {
+        // у могилки есть версия - тот же Time Stamp
         return new Value(Utils.getTime(), null);
     }
 

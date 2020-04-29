@@ -2,6 +2,7 @@ package ru.mail.polis.boriskin;
 
 final class Utils {
     private static long time;
+    // обогащение миллисекунды
     private static int counter;
 
     private Utils() {}

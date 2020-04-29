@@ -39,9 +39,15 @@ public final class MemTable implements Table {
         }
     }
 
+    // Когда клиент запрашивает данные по ключу,
+    // мы также мерджим значения из всех SSTable'ов
+    // и по Time Stamp в remove понимаем, что данная могилка - самая свежая
+    // (самое последнее значение ключа - что он удален).
+    // Пользователь получает - нет такого ключа.
     @Override
     public void remove(@NotNull ByteBuffer K) throws IOException {
-        final Value prev = map.put(K, Value.deadTest());
+        // сохраняем могилку (говорим, что значение removed)
+        final Value prev = map.put(K, Value.tombstone());
         if (prev == null) {
             size += K.remaining();
         } else if (!prev.wasRemoved()) {

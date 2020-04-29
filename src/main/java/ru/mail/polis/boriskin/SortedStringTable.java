@@ -17,11 +17,17 @@ import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.channels.FileChannel.MapMode.READ_ONLY;
 import static java.nio.file.StandardOpenOption.*;
 
+/**
+ * Отсортированная таблица {@link SortedStringTable} на диске.
+ * После записи на диск поддерживает только операции чтения.
+ *
+ */
 public class SortedStringTable implements Table {
     private final long size;
     private final int rows;
 
     private final ByteBuffer cells;
+    // хранит указатели на начало каждой строки
     private final IntBuffer offsets;
 
     @Override
@@ -40,6 +46,10 @@ public class SortedStringTable implements Table {
                 return next < rows;
             }
 
+            // пользователь дергает next.
+            // мы движемся по итераторам - мерджим их,
+            // выбираем самое свежее значение - возвращаем его пользователю.
+            // движемся дальше
             @Override
             public Cell next() {
                 assert hasNext();
@@ -52,11 +62,14 @@ public class SortedStringTable implements Table {
         if ((index < 0) || (index >= rows)) {
             throw new AssertionError();
         }
+
         int offset = offsets.get(index);
 
         /*
         Key Module
          */
+
+        // Используем длину ключа
         final int sizeOfK = cells.getInt(offset);
         offset += BYTES;
 
@@ -71,6 +84,7 @@ public class SortedStringTable implements Table {
         final long timeStamp = cells.getLong(offset);
         offset += Long.BYTES;
         if (timeStamp < 0) {
+            // если это могилка, то дальше ничего нет
             return new Cell(K.slice(), new Value(-timeStamp, null));
         } else {
             /*
@@ -83,16 +97,22 @@ public class SortedStringTable implements Table {
             V.position(offset);
             V.limit(V.position() + sizeOfV).position(offset).limit(offset + sizeOfV);
 
+            // если это нормальное значение, то дальше длина этого значения и само значение
             return new Cell(K.slice(), new Value(timeStamp, V.slice()));
         }
     }
 
+    // бинарный поиск поверх файла
     private int findNext(final ByteBuffer point) {
         int l = 0;
         int r = rows - 1;
         while (l < r + 1) {
+            // берем строчку n/2
             final int m = l + (r - l) / 2;
+            // прыгаем по этой строке,
+            // читаем ключ, сравниваем с тем, что пользователь передал
             final int cmp = findK(m).compareTo(point);
+            // понимаем в какую сторону смотреть
             if (cmp < 0) {
                 l = m + 1;
             } else if (cmp > 0) {
@@ -169,6 +189,7 @@ public class SortedStringTable implements Table {
             int offset = 0;
             while (cells.hasNext()) {
                 offsets.add(offset);
+
                 final Cell cell = cells.next();
 
                 /*
@@ -189,6 +210,8 @@ public class SortedStringTable implements Table {
 
                 /*
                 TimeStamp Module
+                храним монотонно увеличивающийся в системе Time Stamp,
+                чтобы можно было взять строки и по значению версии определить что свежее
                  */
                 if (V.wasRemoved()) {
                     fileChannel.write(Bytes.fromLong(-cell.getV().getTimeStamp()));
