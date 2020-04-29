@@ -136,7 +136,9 @@ public class SortedStringTable implements Table {
 
         final MappedByteBuffer mapped;
         try (FileChannel fileChannel = FileChannel.open(f.toPath(), StandardOpenOption.READ)) {
-            mapped = (MappedByteBuffer) fileChannel.map(FileChannel.MapMode.READ_ONLY, 0L, fileChannel.size()).order(ByteOrder.BIG_ENDIAN);
+            mapped = (MappedByteBuffer) fileChannel.map(
+                    FileChannel.MapMode.READ_ONLY, 0L, fileChannel.size()
+            ).order(ByteOrder.BIG_ENDIAN);
         }
 
         rows = mapped.getInt((int) (size - Integer.BYTES));
