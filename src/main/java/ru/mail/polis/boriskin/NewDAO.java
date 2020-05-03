@@ -160,7 +160,7 @@ public final class NewDAO implements DAO {
             SortedStringTable.writeMemTableDataToDisk(
                     memTable.iterator(ByteBuffer.allocate(0)),
                     temp);
-        } catch (Exception ex) {
+        } catch (IOException ex) {
             Files.delete(temp.toPath());
         }
 
