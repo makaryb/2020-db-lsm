@@ -39,13 +39,17 @@ public final class MemTable implements Table {
         }
     }
 
-    // Когда клиент запрашивает данные по ключу,
-    // мы также мерджим значения из всех SSTable'ов
-    // и по Time Stamp в remove понимаем, что данная могилка - самая свежая
-    // (самое последнее значение ключа - что он удален).
-    // Пользователь получает - нет такого ключа.
+    /**
+     * Когда клиент запрашивает данные по ключу,
+     * мы также мерджим значения из всех SSTable'ов
+     * и по Time Stamp в remove понимаем, что данная могилка - самая свежая
+     * (самое последнее значение ключа - что он удален).
+     * Пользователь получает - нет такого ключа.
+     *
+     * @param key передаваемый ключ
+     */
     @Override
-    public void remove(@NotNull final ByteBuffer key) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) {
         // сохраняем могилку (говорим, что значение removed)
         final Value prev = map.put(key, Value.tombstone());
         if (prev == null) {

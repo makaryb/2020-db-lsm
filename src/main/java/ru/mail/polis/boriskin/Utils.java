@@ -1,5 +1,7 @@
 package ru.mail.polis.boriskin;
 
+import java.util.concurrent.TimeUnit;
+
 final class Utils {
     private static long time;
     // обогащение
@@ -10,7 +12,7 @@ final class Utils {
     }
 
     static long getTime() {
-        final long currentTime = System.nanoTime();
+        final long currentTime = TimeUnit.MILLISECONDS.toNanos(System.currentTimeMillis());
         if (currentTime != time) {
             time = currentTime;
             counter = 0;

@@ -38,10 +38,13 @@ public class SortedStringTable implements Table {
                 return next < rows;
             }
 
-            // пользователь дергает next.
-            // мы движемся по итераторам - мерджим их,
-            // выбираем самое свежее значение - возвращаем его пользователю.
-            // движемся дальше
+            /**
+             * Пользователь дергает next.
+             * Движемся по итераторам - мерджим их,
+             * выбираем самое свежее значение, движемся дальше.
+             *
+             * @return самое свежее значение
+             */
             @Override
             public TableCell next() {
                 assert hasNext();
@@ -51,9 +54,7 @@ public class SortedStringTable implements Table {
     }
 
     private TableCell findCell(final int index) {
-        if (index < 0 || index >= rows) {
-            throw new AssertionError();
-        }
+        assert index >= 0 && index < rows;
 
         int offset = offsets.get(index);
 
@@ -61,9 +62,9 @@ public class SortedStringTable implements Table {
         final int sizeOfK = cells.getInt(offset);
         offset += Integer.BYTES;
 
-        final ByteBuffer K = cells.duplicate();
-        K.position(offset);
-        K.limit(K.position() + sizeOfK);
+        final ByteBuffer key = cells.duplicate();
+        key.position(offset);
+        key.limit(key.position() + sizeOfK);
         offset += sizeOfK;
 
         // работа с версией
@@ -72,20 +73,18 @@ public class SortedStringTable implements Table {
 
         if (timeStamp < 0) {
             // если это могилка, то дальше ничего нет
-            return new TableCell(K.slice(), new Value(-timeStamp, null));
+            return new TableCell(key.slice(), new Value(-timeStamp, null));
         } else {
-            /*
-            Values Module
-             */
+            // Values Module
             final int sizeOfV = cells.getInt(offset);
             offset += Integer.BYTES;
 
-            final ByteBuffer V = cells.duplicate();
-            V.position(offset);
-            V.limit(V.position() + sizeOfV).position(offset).limit(offset + sizeOfV);
+            final ByteBuffer val = cells.duplicate();
+            val.position(offset);
+            val.limit(val.position() + sizeOfV);
 
             // если это нормальное значение, то дальше длина этого значения и само значение
-            return new TableCell(K.slice(), new Value(timeStamp, V.slice()));
+            return new TableCell(key.slice(), new Value(timeStamp, val.slice()));
         }
     }
 
@@ -118,12 +117,12 @@ public class SortedStringTable implements Table {
 
         final int offset = offsets.get(index);
         final int sizeOfK = cells.getInt(offset);
-        final ByteBuffer K = cells.duplicate();
+        final ByteBuffer key = cells.duplicate();
 
-        K.position(offset + Integer.BYTES);
-        K.limit(K.position() + sizeOfK);
+        key.position(offset + Integer.BYTES);
+        key.limit(key.position() + sizeOfK);
 
-        return K.slice();
+        return key.slice();
     }
 
     // Отсортированная таблица на диске.
@@ -175,32 +174,32 @@ public class SortedStringTable implements Table {
 
                 final TableCell tableCell = cells.next();
 
-                final ByteBuffer K = tableCell.getK();
-                final int sizeOfK = tableCell.getK().remaining();
+                final ByteBuffer key = tableCell.getKey();
+                final int sizeOfK = key.remaining();
 
                 fileChannel.write(Bytes.fromInt(sizeOfK));
                 offset += Integer.BYTES;
-                fileChannel.write(K);
+                fileChannel.write(key);
                 offset += sizeOfK;
 
-                final Value V = tableCell.getV();
+                final Value val = tableCell.getValue();
 
                 /*
                 TimeStamp Module
                 храним монотонно увеличивающийся в системе Time Stamp,
                 чтобы можно было взять строки и по значению версии определить что свежее
                  */
-                if (V.wasRemoved()) {
-                    fileChannel.write(Bytes.fromLong(-tableCell.getV().getTimeStamp()));
+                if (val.wasRemoved()) {
+                    fileChannel.write(Bytes.fromLong(-tableCell.getValue().getTimeStamp()));
                 } else {
-                    fileChannel.write(Bytes.fromLong(tableCell.getV().getTimeStamp()));
+                    fileChannel.write(Bytes.fromLong(tableCell.getValue().getTimeStamp()));
                 }
 
                 offset += Long.BYTES;
 
-                if (!V.wasRemoved()) {
-                    final ByteBuffer data = V.getData();
-                    final int sizeOfV = V.getData().remaining();
+                if (!val.wasRemoved()) {
+                    final ByteBuffer data = val.getData();
+                    final int sizeOfV = data.remaining();
 
                     fileChannel.write(Bytes.fromInt(sizeOfV));
                     offset += Integer.BYTES;

@@ -6,8 +6,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-// В данном задании реализация осуществляется
-// согласно структуре, представленной в конце лекции
+/**
+ * В данном задании реализация осуществляется
+ * согласно структуре, представленной в конце лекции
+ *
+ * @author Makary Boriskin
+ */
 public interface Table {
 
     long getSize();

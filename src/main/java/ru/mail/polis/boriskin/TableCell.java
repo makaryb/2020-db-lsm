@@ -9,19 +9,19 @@ final class TableCell {
     private final Value val;
 
     static final Comparator<TableCell> COMPARATOR = Comparator
-            .comparing(TableCell::getK)
-            .thenComparing(TableCell::getV);
+            .comparing(TableCell::getKey)
+            .thenComparing(TableCell::getValue);
 
     TableCell(final ByteBuffer key, final Value val) {
         this.key = key;
         this.val = val;
     }
 
-    public ByteBuffer getK() {
+    public ByteBuffer getKey() {
         return key.asReadOnlyBuffer();
     }
 
-    public Value getV() {
+    public Value getValue() {
         return val;
     }
 }

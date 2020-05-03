@@ -40,41 +40,65 @@ public final class NewDAO implements DAO {
     private int gen;
 
     private static final String NAME = "SortedStringTABLE";
+    private static final String DB = ".db";
+    private static final String TEMP = ".tmp";
 
     /**
      * Конструктор {link NewDAO} instance.
      *
-     * @param base папка диска, где хранятся данные;
-     * @param maxHeapThreshold порог, согласно которому судим когда сбросить таблицу на диск;
-     * @throws IOException обработка получения на вход не того base.
+     * @param base папка диска, где хранятся данные
+     * @param maxHeapThreshold порог, согласно которому судим когда сбросить таблицу на диск
+     * @throws IOException обработка получения на вход не того base
      */
     public NewDAO(final File base, final long maxHeapThreshold) throws IOException {
         this.base = base;
-        if (maxHeapThreshold < 0L) {
-            throw new AssertionError();
-        }
+        assert maxHeapThreshold >= 0L;
         this.maxHeapThreshold = maxHeapThreshold;
 
         memTable = new MemTable();
         ssTableCollection = new ArrayList<SortedStringTable>();
 
-        // сканируем иерархию в папке с целью понять, что там лежат SSTable'ы
-        Files.walkFileTree(base.toPath(), EnumSet.of(FOLLOW_LINKS), 1,
+        /*
+          Сканируем иерархию в папке с целью понять, что там лежат SSTable'ы.
+          Пример, в общем случае:
+          Структура дерева
+          /
+          -usr/
+          --local/
+          ---goto-> (symlink to /etc/share)
+          -etc/
+          --share/
+          ---sample.db
+          ---goto-> (symlink to /usr)
+
+          Пользователь задает папку для поиска /usr/local
+          1. Ты не используешь обход ссылок.
+          Тогда файл .db просто не найдется.
+
+          2. Используешь обход ссылок, но ставишь ограничение глубины (что-то порядка 100 должно быть).
+          Тогда поиск попадет на симлинк ведущий в /etc/share/,
+          если повезет, то следующим узлом для обхода будет как раз нужный .db файлик.
+          Но так как порядок обхода дерева не гарантирован, то можно попасть на ссылку в /usr
+          и тогда обход зациклится.
+          Как только лимит по глубине в 100 будет достигнут, sample.db будет найден.
+
+          Однако в данном конкретном случае, можно обойтись без FOLLOW_LINKS.
+         */
+        Files.walkFileTree(base.toPath(),
                 new SimpleFileVisitor<>() {
            @Override
            public FileVisitResult visitFile(final Path path,
                                             final BasicFileAttributes attributes) throws IOException {
-               if (path.getFileName().toString().endsWith(".db")
+               if (path.getFileName().toString().endsWith(DB)
                        && path.getFileName().toString().startsWith(NAME)) {
                    ssTableCollection.add(new SortedStringTable(path.toFile()));
+                   // более свежая версия из того, что лежит на диске
+                   gen = Math.max(gen, getGeneration(path.toFile().getName()));
                }
+
                return CONTINUE;
            }
         });
-
-        // более свежая версия из того, что лежит на диске
-        // (0 - старая, size()-1 - самая новая)
-        gen = ssTableCollection.size() - 1;
     }
 
     @NotNull
@@ -82,29 +106,23 @@ public final class NewDAO implements DAO {
     public Iterator<Record> iterator(@NotNull final ByteBuffer point) throws IOException {
         final Collection<Iterator<TableCell>> filesIterator = new ArrayList<>();
 
-        /*
-        SSTables iterators Module
-         */
         for (final SortedStringTable sortedStringTable : ssTableCollection) {
             filesIterator.add(sortedStringTable.iterator(point));
         }
 
-        /*
-        MemTable iterator Module
-         */
         filesIterator.add(memTable.iterator(point));
         // итератор мерджит разные потоки и выбирает самое актуальное значение
         final Iterator<TableCell> cells = Iters.collapseEquals(
                 Iterators.mergeSorted(filesIterator, TableCell.COMPARATOR),
-                TableCell::getK);
+                TableCell::getKey);
         // может быть "живое" значение, а может быть, что значение по ключу удалили в момент времени Time Stamp
         final Iterator<TableCell> alive = Iterators.filter(cells,
-                cell -> !cell.getV().wasRemoved());
+                cell -> !cell.getValue().wasRemoved());
         // после мерджа ячеек разных таблиц,
         // при возвращении итератора пользователю:
         // в этот момент превращает их в рекорды (transform)
         return Iterators.transform(alive,
-                cell -> Record.of(cell.getK(), cell.getV().getData()));
+                cell -> Record.of(cell.getKey(), cell.getValue().getData()));
     }
 
     // вставить-обновить
@@ -138,14 +156,18 @@ public final class NewDAO implements DAO {
 
     private void flush() throws IOException {
         // в начале нужно писать во временный файл
-        final File temp = new File(base, NAME + gen + ".tmp");
+        final File temp = new File(base, NAME + gen + TEMP);
 
-        SortedStringTable.writeMemTableDataToDisk(
-                memTable.iterator(ByteBuffer.allocate(0)),
-                temp);
+        try {
+            SortedStringTable.writeMemTableDataToDisk(
+                    memTable.iterator(ByteBuffer.allocate(0)),
+                    temp);
+        } catch (IOException ex) {
+            temp.delete();
+        }
 
         // превращаем в постоянный файл
-        final File dest = new File(base, NAME + gen + ".db");
+        final File dest = new File(base, NAME + gen + DB);
         Files.move(temp.toPath(), dest.toPath(), ATOMIC_MOVE);
 
         // обновляем счетчик поколений
@@ -153,5 +175,14 @@ public final class NewDAO implements DAO {
         // заменяем MemTable в памяти на пустой
         memTable = new MemTable();
         // таким образом, на диске копятся SSTable'ы + есть пустой-непустой MemTable в памяти
+    }
+
+    private int getGeneration(final String name) {
+        for (int index = 0; index < Math.min(9, name.length()); index++) {
+            if (!Character.isDigit(name.charAt(index))) {
+                return index == 0 ? 0 : Integer.parseInt(name.substring(0, index));
+            }
+        }
+        return -1;
     }
 }
