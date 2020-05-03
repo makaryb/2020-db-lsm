@@ -16,10 +16,8 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.Iterator;
 
-import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 import static java.nio.file.FileVisitResult.CONTINUE;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 
@@ -162,8 +160,8 @@ public final class NewDAO implements DAO {
             SortedStringTable.writeMemTableDataToDisk(
                     memTable.iterator(ByteBuffer.allocate(0)),
                     temp);
-        } catch (IOException ex) {
-            temp.delete();
+        } catch (Exception ex) {
+            Files.delete(temp.toPath());
         }
 
         // превращаем в постоянный файл
