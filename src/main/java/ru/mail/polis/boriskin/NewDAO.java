@@ -110,28 +110,30 @@ public final class NewDAO implements DAO {
     // вставить-обновить
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer val) throws IOException {
-        memTable.upsert(key, val);
         // когда размер таблицы достигает порога,
         // сбрасываем данную таблицу на диск,
         // где она хранится в бинарном сериализованном виде
         if (memTable.getSize() >= maxHeapThreshold) {
             flush();
         }
+        memTable.upsert(key, val);
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTable.remove(key);
         // сбрасываем таблицу на диск
         if (memTable.getSize() >= maxHeapThreshold) {
             flush();
         }
+        memTable.remove(key);
     }
 
     @Override
     public void close() throws IOException {
         // сохранить все, что мы не сохранили
-        flush();
+        if (memTable.getSize() > 0) {
+            flush();
+        }
     }
 
     private void flush() throws IOException {
