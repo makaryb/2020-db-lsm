@@ -87,7 +87,7 @@ public final class NewDAO implements DAO {
            @Override
            public FileVisitResult visitFile(final Path path,
                                             final BasicFileAttributes attributes) throws IOException {
-               if (path.getFileName().toString().endsWith(DB)
+               if (path.toFile().isFile() && path.getFileName().toString().endsWith(DB)
                        && path.getFileName().toString().startsWith(NAME)) {
                    ssTableCollection.add(new SortedStringTable(path.toFile()));
                    // более свежая версия из того, что лежит на диске
@@ -126,22 +126,22 @@ public final class NewDAO implements DAO {
     // вставить-обновить
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer val) throws IOException {
+        memTable.upsert(key, val);
         // когда размер таблицы достигает порога,
         // сбрасываем данную таблицу на диск,
         // где она хранится в бинарном сериализованном виде
         if (memTable.getSize() >= maxHeapThreshold) {
             flush();
         }
-        memTable.upsert(key, val);
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
+        memTable.remove(key);
         // сбрасываем таблицу на диск
         if (memTable.getSize() >= maxHeapThreshold) {
             flush();
         }
-        memTable.remove(key);
     }
 
     @Override
@@ -162,11 +162,14 @@ public final class NewDAO implements DAO {
                     temp);
         } catch (IOException ex) {
             Files.delete(temp.toPath());
+            fun();
         }
 
         // превращаем в постоянный файл
         final File dest = new File(base, NAME + gen + DB);
         Files.move(temp.toPath(), dest.toPath(), ATOMIC_MOVE);
+
+        ssTableCollection.add(new SortedStringTable(dest));
 
         // обновляем счетчик поколений
         gen++;
@@ -176,11 +179,15 @@ public final class NewDAO implements DAO {
     }
 
     private int getGeneration(final String name) {
-        for (int index = 0; index < Math.min(9, name.length()); index++) {
-            if (!Character.isDigit(name.charAt(index))) {
-                return index == 0 ? 0 : Integer.parseInt(name.substring(0, index));
+        for (int i = 0; i < Math.min(9, name.length()); i++) {
+            if (!Character.isDigit(name.charAt(i))) {
+                return i == 0 ? 0 : Integer.parseInt(name.substring(0, i));
             }
         }
         return -1;
+    }
+
+    private void fun() throws IOException {
+        throw new IOException("БД в странном состоянии");
     }
 }
