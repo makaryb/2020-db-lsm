@@ -225,7 +225,7 @@ public final class NewDAO implements DAO {
             fun();
         }
 
-        for (SortedStringTable sortedStringTable : ssTableCollection) {
+        for (final SortedStringTable sortedStringTable : ssTableCollection) {
             try {
                 Files.delete(sortedStringTable.getTable().toPath());
             } catch (IOException ex) {

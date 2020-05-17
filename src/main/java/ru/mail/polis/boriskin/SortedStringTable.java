@@ -19,13 +19,14 @@ public class SortedStringTable implements Table {
     private final int rows;
 
     private final File table;
-    File getTable() {
-        return table;
-    }
 
     // хранит указатели на начало каждой строки
     private final IntBuffer offsets;
     private final ByteBuffer cells;
+
+    File getTable() {
+        return table;
+    }
 
     @Override
     public long getSize() {
@@ -154,8 +155,6 @@ public class SortedStringTable implements Table {
         this.offsets = offsetsByteBuffer.slice().asIntBuffer();
         this.cells = cellsByteBuffer.slice();
     }
-
-
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer val) throws IOException {
