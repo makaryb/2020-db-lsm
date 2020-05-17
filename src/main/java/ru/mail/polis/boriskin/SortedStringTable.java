@@ -18,6 +18,11 @@ public class SortedStringTable implements Table {
     private final long size;
     private final int rows;
 
+    private final File table;
+    File getTable() {
+        return table;
+    }
+
     // хранит указатели на начало каждой строки
     private final IntBuffer offsets;
     private final ByteBuffer cells;
@@ -30,7 +35,7 @@ public class SortedStringTable implements Table {
     @NotNull
     @Override
     public Iterator<TableCell> iterator(@NotNull final ByteBuffer point) throws IOException {
-        return new Iterator<TableCell>() {
+        return new Iterator<>() {
             int next = findNext(point);
 
             @Override
@@ -111,9 +116,7 @@ public class SortedStringTable implements Table {
     }
 
     private Comparable<ByteBuffer> findK(final int index) {
-        if (index < 0 || index >= rows) {
-            throw new AssertionError();
-        }
+        assert 0 <= index && index < rows;
 
         final int offset = offsets.get(index);
         final int sizeOfK = cells.getInt(offset);
@@ -127,11 +130,10 @@ public class SortedStringTable implements Table {
 
     // Отсортированная таблица на диске.
     // После записи на диск поддерживает только операции чтения.
-    SortedStringTable(final File f) throws IOException {
+    SortedStringTable(@NotNull final File f) throws IOException {
+        this.table = f;
         this.size = f.length();
-        if (size == 0 || size > Integer.MAX_VALUE) {
-            throw new AssertionError();
-        }
+        assert size != 0 && size <= Integer.MAX_VALUE;
 
         final MappedByteBuffer mapped;
         try (FileChannel fileChannel = FileChannel.open(f.toPath(), StandardOpenOption.READ)) {
@@ -152,6 +154,8 @@ public class SortedStringTable implements Table {
         this.offsets = offsetsByteBuffer.slice().asIntBuffer();
         this.cells = cellsByteBuffer.slice();
     }
+
+
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer val) throws IOException {
