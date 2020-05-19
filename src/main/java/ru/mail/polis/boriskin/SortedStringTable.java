@@ -166,7 +166,7 @@ public class SortedStringTable implements Table {
         throw new UnsupportedOperationException("");
     }
 
-    static void writeMemTableDataToDisk(final Iterator<TableCell> cells, final File target) throws IOException {
+    static void writeData(final Iterator<TableCell> cells, final File target) throws IOException {
         try (FileChannel fileChannel = FileChannel.open(target.toPath(),
                 StandardOpenOption.CREATE_NEW,
                 StandardOpenOption.WRITE)) {

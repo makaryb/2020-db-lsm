@@ -177,12 +177,12 @@ public final class NewDAO implements DAO {
         final File temp = new File(base, NAME + gen + TEMP);
 
         try {
-            SortedStringTable.writeMemTableDataToDisk(
+            SortedStringTable.writeData(
                     memTable.iterator(ByteBuffer.allocate(0)),
                     temp);
         } catch (IOException ex) {
             Files.delete(temp.toPath());
-            fun();
+            throwDBStrangeBehaviour();
         }
 
         // превращаем в постоянный файл
@@ -198,7 +198,7 @@ public final class NewDAO implements DAO {
         // таким образом, на диске копятся SSTable'ы + есть пустой-непустой MemTable в памяти
     }
 
-    private void fun() throws IOException {
+    private void throwDBStrangeBehaviour() throws IOException {
         throw new IOException("БД в странном состоянии");
     }
 
@@ -217,19 +217,19 @@ public final class NewDAO implements DAO {
         final File temp = new File(base, NAME + gen + TEMP);
 
         try {
-            SortedStringTable.writeMemTableDataToDisk(
+            SortedStringTable.writeData(
                     iterateThroughTableCells(ByteBuffer.allocate(0)),
                     temp);
         } catch (IOException ex) {
             Files.delete(temp.toPath());
-            fun();
+            throwDBStrangeBehaviour();
         }
 
         for (final SortedStringTable sortedStringTable : ssTableCollection) {
             try {
                 Files.delete(sortedStringTable.getTable().toPath());
             } catch (IOException ex) {
-                log.debug("Не удалось удалить: " + ex);
+                log.warn("Не удалось удалить: " + ex);
             }
         }
 
