@@ -2,6 +2,8 @@ package ru.mail.polis.boriskin;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.DAO;
 import ru.mail.polis.Iters;
 import ru.mail.polis.Record;
@@ -28,6 +30,10 @@ import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
  */
 public final class NewDAO implements DAO {
 
+    private static final Logger log = LoggerFactory.getLogger(NewDAO.class);
+
+    private final int maxSSTableCollectionThreshold;
+
     private final File base;
     private final long maxHeapThreshold;
 
@@ -53,8 +59,10 @@ public final class NewDAO implements DAO {
         assert maxHeapThreshold >= 0L;
         this.maxHeapThreshold = maxHeapThreshold;
 
+        this.maxSSTableCollectionThreshold = 64;
+
         memTable = new MemTable();
-        ssTableCollection = new ArrayList<SortedStringTable>();
+        ssTableCollection = new ArrayList<>();
 
         /*
           Сканируем иерархию в папке с целью понять, что там лежат SSTable'ы.
@@ -102,6 +110,15 @@ public final class NewDAO implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer point) throws IOException {
+
+        // после мерджа ячеек разных таблиц,
+        // при возвращении итератора пользователю:
+        // в этот момент превращает их в рекорды (transform)
+        return Iterators.transform(iterateThroughTableCells(point),
+                cell -> Record.of(cell.getKey(), cell.getValue().getData()));
+    }
+
+    private Iterator<TableCell> iterateThroughTableCells(@NotNull final ByteBuffer point) throws IOException {
         final Collection<Iterator<TableCell>> filesIterator = new ArrayList<>();
 
         for (final SortedStringTable sortedStringTable : ssTableCollection) {
@@ -114,13 +131,8 @@ public final class NewDAO implements DAO {
                 Iterators.mergeSorted(filesIterator, TableCell.COMPARATOR),
                 TableCell::getKey);
         // может быть "живое" значение, а может быть, что значение по ключу удалили в момент времени Time Stamp
-        final Iterator<TableCell> alive = Iterators.filter(cells,
+        return Iterators.filter(cells,
                 cell -> !cell.getValue().wasRemoved());
-        // после мерджа ячеек разных таблиц,
-        // при возвращении итератора пользователю:
-        // в этот момент превращает их в рекорды (transform)
-        return Iterators.transform(alive,
-                cell -> Record.of(cell.getKey(), cell.getValue().getData()));
     }
 
     // вставить-обновить
@@ -133,6 +145,10 @@ public final class NewDAO implements DAO {
         if (memTable.getSize() >= maxHeapThreshold) {
             flush();
         }
+
+        if (ssTableCollection.size() > maxSSTableCollectionThreshold) {
+            compact();
+        }
     }
 
     @Override
@@ -141,6 +157,10 @@ public final class NewDAO implements DAO {
         // сбрасываем таблицу на диск
         if (memTable.getSize() >= maxHeapThreshold) {
             flush();
+        }
+
+        if (ssTableCollection.size() > maxSSTableCollectionThreshold) {
+            compact();
         }
     }
 
@@ -157,12 +177,12 @@ public final class NewDAO implements DAO {
         final File temp = new File(base, NAME + gen + TEMP);
 
         try {
-            SortedStringTable.writeMemTableDataToDisk(
+            SortedStringTable.writeData(
                     memTable.iterator(ByteBuffer.allocate(0)),
                     temp);
         } catch (IOException ex) {
             Files.delete(temp.toPath());
-            fun();
+            throwDBStrangeBehaviour();
         }
 
         // превращаем в постоянный файл
@@ -178,6 +198,10 @@ public final class NewDAO implements DAO {
         // таким образом, на диске копятся SSTable'ы + есть пустой-непустой MemTable в памяти
     }
 
+    private void throwDBStrangeBehaviour() throws IOException {
+        throw new IOException("БД в странном состоянии");
+    }
+
     private int getGeneration(final String name) {
         for (int i = 0; i < Math.min(9, name.length()); i++) {
             if (!Character.isDigit(name.charAt(i))) {
@@ -187,7 +211,34 @@ public final class NewDAO implements DAO {
         return -1;
     }
 
-    private void fun() throws IOException {
-        throw new IOException("БД в странном состоянии");
+    @Override
+    public void compact() throws IOException {
+        gen = 1;
+        final File temp = new File(base, NAME + gen + TEMP);
+
+        try {
+            SortedStringTable.writeData(
+                    iterateThroughTableCells(ByteBuffer.allocate(0)),
+                    temp);
+        } catch (IOException ex) {
+            Files.delete(temp.toPath());
+            throwDBStrangeBehaviour();
+        }
+
+        for (final SortedStringTable sortedStringTable : ssTableCollection) {
+            try {
+                Files.delete(sortedStringTable.getTable().toPath());
+            } catch (IOException ex) {
+                log.warn("Не удалось удалить: " + ex);
+            }
+        }
+
+        ssTableCollection.clear();
+
+        final File dest = new File(base, NAME + gen + DB);
+        Files.move(temp.toPath(), dest.toPath(), ATOMIC_MOVE);
+        ssTableCollection.add(new SortedStringTable(dest));
+
+        gen = ssTableCollection.size() + 1;
     }
 }

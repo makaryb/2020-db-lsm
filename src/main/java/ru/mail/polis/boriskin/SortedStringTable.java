@@ -18,9 +18,15 @@ public class SortedStringTable implements Table {
     private final long size;
     private final int rows;
 
+    private final File table;
+
     // хранит указатели на начало каждой строки
     private final IntBuffer offsets;
     private final ByteBuffer cells;
+
+    File getTable() {
+        return table;
+    }
 
     @Override
     public long getSize() {
@@ -30,7 +36,7 @@ public class SortedStringTable implements Table {
     @NotNull
     @Override
     public Iterator<TableCell> iterator(@NotNull final ByteBuffer point) throws IOException {
-        return new Iterator<TableCell>() {
+        return new Iterator<>() {
             int next = findNext(point);
 
             @Override
@@ -111,9 +117,7 @@ public class SortedStringTable implements Table {
     }
 
     private Comparable<ByteBuffer> findK(final int index) {
-        if (index < 0 || index >= rows) {
-            throw new AssertionError();
-        }
+        assert 0 <= index && index < rows;
 
         final int offset = offsets.get(index);
         final int sizeOfK = cells.getInt(offset);
@@ -127,11 +131,10 @@ public class SortedStringTable implements Table {
 
     // Отсортированная таблица на диске.
     // После записи на диск поддерживает только операции чтения.
-    SortedStringTable(final File f) throws IOException {
+    SortedStringTable(@NotNull final File f) throws IOException {
+        this.table = f;
         this.size = f.length();
-        if (size == 0 || size > Integer.MAX_VALUE) {
-            throw new AssertionError();
-        }
+        assert size != 0 && size <= Integer.MAX_VALUE;
 
         final MappedByteBuffer mapped;
         try (FileChannel fileChannel = FileChannel.open(f.toPath(), StandardOpenOption.READ)) {
@@ -163,7 +166,7 @@ public class SortedStringTable implements Table {
         throw new UnsupportedOperationException("");
     }
 
-    static void writeMemTableDataToDisk(final Iterator<TableCell> cells, final File target) throws IOException {
+    static void writeData(final Iterator<TableCell> cells, final File target) throws IOException {
         try (FileChannel fileChannel = FileChannel.open(target.toPath(),
                 StandardOpenOption.CREATE_NEW,
                 StandardOpenOption.WRITE)) {
